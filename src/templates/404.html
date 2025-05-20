@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Página Não Encontrada - Sistema de Questões{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 text-center">
+        <div class="error-container my-5">
+            <h1 class="display-1 text-danger">404</h1>
+            <h2 class="mb-4">Página Não Encontrada</h2>
+            <p class="lead mb-4">A página que você está procurando não existe ou foi movida.</p>
+            <img src="{{ url_for('static', filename='images/404.svg') }}" alt="Erro 404" class="img-fluid mb-4" style="max-height: 300px;">
+            <div class="mt-4">
+                <a href="{{ url_for('home.index') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-home me-2"></i>Voltar para a Página Inicial
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

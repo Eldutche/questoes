@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}Responder Questões - Sistema de Questões{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card shadow-lg border-0 rounded-lg">
+            <div class="card-header bg-primary text-white">
+                <h2 class="text-center mb-0"><i class="fas fa-pen me-2"></i>Responder Questões</h2>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('answer.start_quiz') }}" method="POST">
+                    <div class="filter-section mb-4">
+                        <h4><i class="fas fa-filter me-2"></i>Filtros</h4>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="subject" class="form-label">Matéria:</label>
+                                <select class="form-select" id="subject" name="subject" required>
+                                    <option value="" selected disabled>Selecione uma Matéria</option>
+                                    <option value="all">Todas as Matérias</option>
+                                    {% for subject in subjects %}
+                                    <option value="{{ subject.id }}">{{ subject.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="topic" class="form-label">Assunto:</label>
+                                <select class="form-select" id="topic" name="topic">
+                                    <option value="all" selected>Todos os Assuntos</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="question_count" class="form-label">Quantidade de Questões:</label>
+                                <input type="number" class="form-control" id="question_count" name="question_count" value="10" min="1" max="50" required>
+                            </div>
+                        </div>
+                        <div class="text-center mt-3">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-play me-1"></i> Iniciar Quiz
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card shadow-lg border-0 rounded-lg mt-4">
+            <div class="card-header bg-secondary text-white">
+                <h3 class="mb-0"><i class="fas fa-info-circle me-2"></i>Como Funciona</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 feature-card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-filter fa-3x text-primary mb-3"></i>
+                                <h5>1. Selecione os Filtros</h5>
+                                <p>Escolha a matéria, assunto e quantidade de questões que deseja responder.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 feature-card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-pen-alt fa-3x text-success mb-3"></i>
+                                <h5>2. Responda as Questões</h5>
+                                <p>Responda cada questão selecionando a alternativa que você acredita ser correta.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 feature-card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-chart-bar fa-3x text-danger mb-3"></i>
+                                <h5>3. Veja seus Resultados</h5>
+                                <p>Ao final, confira seu desempenho e as respostas corretas para cada questão.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Carregar tópicos quando o assunto for selecionado
+        $('#subject').change(function() {
+            var subjectId = $(this).val();
+            if (subjectId) {
+                $.getJSON("{{ url_for('print.get_topics', subject_id='') }}" + subjectId, function(data) {
+                    var topicSelect = $('#topic');
+                    topicSelect.empty();
+                    
+                    $.each(data, function(index, topic) {
+                        topicSelect.append($('<option></option>').attr('value', topic.id).text(topic.name));
+                    });
+                });
+            } else {
+                $('#topic').empty().append($('<option></option>').attr('value', 'all').text('Todos os Assuntos'));
+            }
+        });
+    });
+</script>
+{% endblock %}

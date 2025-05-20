@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block title %}Resultados do Quiz - Sistema de Questões{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card shadow-lg border-0 rounded-lg">
+            <div class="card-header bg-primary text-white">
+                <h2 class="text-center mb-0"><i class="fas fa-chart-bar me-2"></i>Resultados do Quiz</h2>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="score-circle mx-auto mb-3">
+                        <div class="score-number">{{ score_percent|round|int }}%</div>
+                    </div>
+                    <h3>Você acertou {{ correct_count }} de {{ total_questions }} questões</h3>
+                    
+                    {% if score_percent >= 80 %}
+                    <div class="alert alert-success mt-3">
+                        <i class="fas fa-trophy me-2"></i> Excelente! Você domina este conteúdo.
+                    </div>
+                    {% elif score_percent >= 60 %}
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-thumbs-up me-2"></i> Bom trabalho! Continue estudando para melhorar.
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-book me-2"></i> Continue estudando! Revise o conteúdo para melhorar seu desempenho.
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <h4 class="mb-3"><i class="fas fa-list-ol me-2"></i>Detalhes das Respostas</h4>
+                
+                {% for response in responses %}
+                <div class="card mb-4 {% if response.is_correct %}border-success{% else %}border-danger{% endif %}">
+                    <div class="card-header {% if response.is_correct %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Questão {{ loop.index }}</h5>
+                            {% if response.is_correct %}
+                            <span><i class="fas fa-check-circle me-1"></i> Correta</span>
+                            {% else %}
+                            <span><i class="fas fa-times-circle me-1"></i> Incorreta</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <h5>{{ response.question.text }}</h5>
+                        
+                        {% if response.question.image_path %}
+                        <div class="text-center my-3">
+                            <img src="{{ url_for('static', filename=response.question.image_path) }}" alt="Imagem da questão" class="img-fluid question-image">
+                        </div>
+                        {% endif %}
+                        
+                        <div class="alternatives mt-3">
+                            {% for alternative in response.question.alternatives %}
+                            <div class="alternative-item p-2 mb-2 {% if alternative.id == response.selected_alternative.id %}selected-answer{% endif %} {% if alternative.is_correct %}correct-answer{% endif %}">
+                                {% if response.question.question_type == 'multiple_choice' %}
+                                <strong>{{ loop.index | chr(64 + loop.index) }})</strong> {{ alternative.text }}
+                                {% else %}
+                                {{ alternative.text }}
+                                {% endif %}
+                                
+                                {% if alternative.id == response.selected_alternative.id and alternative.is_correct %}
+                                <span class="badge bg-success float-end"><i class="fas fa-check me-1"></i> Sua resposta (Correta)</span>
+                                {% elif alternative.id == response.selected_alternative.id %}
+                                <span class="badge bg-danger float-end"><i class="fas fa-times me-1"></i> Sua resposta</span>
+                                {% elif alternative.is_correct %}
+                                <span class="badge bg-success float-end"><i class="fas fa-check me-1"></i> Resposta correta</span>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('answer.index') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-redo me-1"></i> Novo Quiz
+                    </a>
+                    <a href="{{ url_for('home.index') }}" class="btn btn-secondary btn-lg ms-2">
+                        <i class="fas fa-home me-1"></i> Voltar ao Início
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .score-circle {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        background: conic-gradient(
+            var(--primary-color) {{ score_percent }}%, 
+            #f1f1f1 {{ score_percent }}% 100%
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+    
+    .score-circle::before {
+        content: '';
+        position: absolute;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background-color: white;
+    }
+    
+    .score-number {
+        position: relative;
+        z-index: 2;
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: var(--primary-color);
+    }
+    
+    .alternative-item {
+        border-radius: 8px;
+    }
+    
+    .selected-answer {
+        background-color: rgba(220, 53, 69, 0.1);
+        border-left: 4px solid #dc3545;
+    }
+    
+    .correct-answer {
+        background-color: rgba(40, 167, 69, 0.1);
+        border-left: 4px solid #28a745;
+    }
+    
+    .selected-answer.correct-answer {
+        background-color: rgba(40, 167, 69, 0.2);
+        border-left: 4px solid #28a745;
+    }
+    
+    .question-image {
+        max-height: 200px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
