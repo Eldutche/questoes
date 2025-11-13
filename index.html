@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sistema de Questões</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-content">
+          <h1 class="logo">
+            <i class="fas fa-brain"></i>
+            Sistema de Questões
+          </h1>
+          <nav class="nav">
+            <button class="nav-btn active" data-section="questoes">
+              <i class="fas fa-list"></i>
+              Questões
+            </button>
+            <button class="nav-btn" data-section="responder">
+              <i class="fas fa-play"></i>
+              Responder
+            </button>
+            <button class="nav-btn" data-section="dashboard">
+              <i class="fas fa-chart-bar"></i>
+              Dashboard
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="main">
+        <!-- Seção de Questões -->
+        <section id="questoes" class="section active">
+          <div class="section-header">
+            <h2>Gerenciar Questões</h2>
+            <button class="btn btn-primary" id="btn-nova-questao">
+              <i class="fas fa-plus"></i>
+              Nova Questão
+            </button>
+          </div>
+
+          <!-- Filtros -->
+          <div class="filters">
+            <select id="filtro-materia" class="filter-select">
+              <option value="">Todas as Matérias</option>
+            </select>
+            <select id="filtro-assunto" class="filter-select">
+              <option value="">Todos os Assuntos</option>
+            </select>
+            <select id="filtro-dificuldade" class="filter-select">
+              <option value="">Todas as Dificuldades</option>
+              <option value="facil">Fácil</option>
+              <option value="media">Média</option>
+              <option value="dificil">Difícil</option>
+            </select>
+            <select id="filtro-banca" class="filter-select">
+              <option value="">Todas as Bancas</option>
+            </select>
+          </div>
+
+          <!-- Lista de Questões -->
+          <div class="questoes-grid" id="questoes-grid">
+            <!-- Questões serão carregadas aqui via JavaScript -->
+          </div>
+        </section>
+
+        <!-- Seção de Responder -->
+        <section id="responder" class="section">
+          <div class="section-header">
+            <h2>Responder Questões</h2>
+            <div class="quiz-controls">
+              <div class="quiz-controls">
+                <select id="quiz-filtro-materia" class="filter-select">
+                  <option value="">Todas as Matérias</option>
+                </select>
+                <select id="quiz-filtro-assunto" class="filter-select">
+                  <option value="">Todos os Assuntos</option>
+                </select>
+                <select id="quiz-filtro-banca" class="filter-select">
+                  <option value="">Todas as Bancas</option>
+                </select>
+                <button class="btn btn-secondary" id="btn-iniciar-quiz">
+                  <i class="fas fa-play"></i> Iniciar Quiz
+                </button>
+                <button
+                  class="btn btn-outline"
+                  id="btn-proxima-questao"
+                  style="display: none"
+                >
+                  <i class="fas fa-arrow-right"></i> Próxima
+                </button>
+                <button class="btn btn-outline" id="btn-recarregar-quiz">
+                  <i class="fas fa-sync"></i> Atualizar Página
+                </button>
+              </div>
+
+              <button
+                class="btn btn-outline"
+                id="btn-proxima-questao"
+                style="display: none"
+              >
+                <i class="fas fa-arrow-right"></i>
+                Próxima
+              </button>
+            </div>
+          </div>
+
+          <div class="quiz-container" id="quiz-container">
+            <div class="quiz-placeholder">
+              <i class="fas fa-play-circle"></i>
+              <p>Clique em "Iniciar Quiz" para começar a responder questões</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Seção de Dashboard -->
+        <section id="dashboard" class="section">
+          <div class="section-header">
+            <h2>Dashboard de Estatísticas</h2>
+            <button class="btn btn-outline" id="btn-atualizar-dashboard">
+              <i class="fas fa-sync-alt"></i>
+              Atualizar
+            </button>
+          </div>
+
+          <div class="dashboard-grid" id="dashboard-grid">
+            <!-- Estatísticas serão carregadas aqui via JavaScript -->
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Modal para Nova/Editar Questão -->
+    <div class="modal" id="modal-questao">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-title">Nova Questão</h3>
+          <button class="modal-close" id="modal-close">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <form id="form-questao" class="modal-body">
+          <div class="form-group">
+            <label for="enunciado">Enunciado da Questão</label>
+            <div class="form-group-with-button">
+              <div
+                id="enunciado"
+                name="enunciado"
+                contenteditable="true"
+                class="editor"
+                placeholder="Cole a questão completa aqui (enunciado e alternativas)..."
+              ></div>
+              <button type="button" class="btn btn-outline btn-small" id="btn-processar-texto">
+                <i class="fas fa-magic"></i> Processar Texto
+              </button>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="tipo">Tipo de Questão</label>
+              <select id="tipo" name="tipo" required>
+                <option value="">Selecione o tipo</option>
+                <option value="multipla_escolha">Múltipla Escolha</option>
+                <option value="certo_errado">Certo ou Errado</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="dificuldade">Dificuldade</label>
+              <select id="dificuldade" name="dificuldade">
+                <option value="">Selecione a dificuldade</option>
+                <option value="facil">Fácil</option>
+                <option value="media">Média</option>
+                <option value="dificil">Difícil</option>
+              </select>
+            </div>
+          </div>
+
+          <label for="materia">Matéria</label>
+          <input
+            list="materias-list"
+            id="materia"
+            name="materia"
+            placeholder="Digite ou selecione a matéria"
+          />
+          <datalist id="materias-list"></datalist>
+
+          <label for="assunto">Assunto</label>
+          <input
+            list="assuntos-list"
+            id="assunto"
+            name="assunto"
+            placeholder="Digite ou selecione o assunto"
+          />
+          <datalist id="assuntos-list"></datalist>
+
+          <label for="banca">Banca</label>
+          <input
+            list="bancas-list"
+            id="banca"
+            name="banca"
+            placeholder="Digite ou selecione a banca"
+          />
+          <datalist id="bancas-list"></datalist>
+
+          <!-- Opções para Múltipla Escolha -->
+          <div id="opcoes-container" style="display: none">
+            <label>Opções de Resposta</label>
+            <div id="opcoes-list">
+              <!-- Opções serão adicionadas dinamicamente -->
+            </div>
+            <button
+              type="button"
+              class="btn btn-outline btn-small"
+              id="btn-adicionar-opcao"
+            >
+              <i class="fas fa-plus"></i>
+              Adicionar Opção
+            </button>
+          </div>
+
+          <!-- Resposta para Certo ou Errado -->
+          <div id="certo-errado-container" style="display: none">
+            <label>Resposta Correta</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="resposta_correta" value="Certo" />
+                <span class="radio-custom"></span>
+                Certo
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="resposta_correta" value="Errado" />
+                <span class="radio-custom"></span>
+                Errado
+              </label>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btn-cancelar">
+              Cancelar
+            </button>
+            <button type="submit" class="btn btn-primary">
+              Salvar Questão
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal de Confirmação -->
+    <div class="modal" id="modal-confirmacao">
+      <div class="modal-content modal-small">
+        <div class="modal-header">
+          <h3>Confirmar Exclusão</h3>
+        </div>
+        <div class="modal-body">
+          <p>
+            Tem certeza que deseja excluir esta questão? Esta ação não pode ser
+            desfeita.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            id="btn-cancelar-exclusao"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn btn-danger"
+            id="btn-confirmar-exclusao"
+          >
+            Excluir
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/main.js"></script>
+  </body>
+</html>
