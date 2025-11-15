@@ -82,38 +82,34 @@
           <div class="section-header">
             <h2>Responder Questões</h2>
             <div class="quiz-controls">
-              <div class="quiz-controls">
-                <select id="quiz-filtro-materia" class="filter-select">
-                  <option value="">Todas as Matérias</option>
-                </select>
-                <select id="quiz-filtro-assunto" class="filter-select">
-                  <option value="">Todos os Assuntos</option>
-                </select>
-                <select id="quiz-filtro-banca" class="filter-select">
-                  <option value="">Todas as Bancas</option>
-                </select>
-                <button class="btn btn-secondary" id="btn-iniciar-quiz">
-                  <i class="fas fa-play"></i> Iniciar Quiz
-                </button>
-                <button
-                  class="btn btn-outline"
-                  id="btn-proxima-questao"
-                  style="display: none"
-                >
-                  <i class="fas fa-arrow-right"></i> Próxima
-                </button>
-                <button class="btn btn-outline" id="btn-recarregar-quiz">
-                  <i class="fas fa-sync"></i> Atualizar Página
-                </button>
-              </div>
-
+              <select id="quiz-filtro-materia" class="filter-select">
+                <option value="">Todas as Matérias</option>
+              </select>
+              <select id="quiz-filtro-assunto" class="filter-select">
+                <option value="">Todos os Assuntos</option>
+              </select>
+              <select id="quiz-filtro-banca" class="filter-select">
+                <option value="">Todas as Bancas</option>
+              </select>
+              <button class="btn btn-secondary" id="btn-iniciar-quiz">
+                <i class="fas fa-play"></i> Iniciar Quiz
+              </button>
+              <button
+                class="btn btn-outline"
+                id="btn-questao-anterior"
+                style="display: none"
+              >
+                <i class="fas fa-arrow-left"></i> Anterior
+              </button>
               <button
                 class="btn btn-outline"
                 id="btn-proxima-questao"
                 style="display: none"
               >
-                <i class="fas fa-arrow-right"></i>
-                Próxima
+                <i class="fas fa-arrow-right"></i> Próxima
+              </button>
+              <button class="btn btn-outline" id="btn-recarregar-quiz">
+                <i class="fas fa-sync"></i> Atualizar Página
               </button>
             </div>
           </div>
@@ -163,7 +159,11 @@
                 class="editor"
                 placeholder="Cole a questão completa aqui (enunciado e alternativas)..."
               ></div>
-              <button type="button" class="btn btn-outline btn-small" id="btn-processar-texto">
+              <button
+                type="button"
+                class="btn btn-outline btn-small"
+                id="btn-processar-texto"
+              >
                 <i class="fas fa-magic"></i> Processar Texto
               </button>
             </div>
