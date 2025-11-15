@@ -32,6 +32,23 @@ const enunciadoEditor = document.getElementById("enunciado");
 let questaoEmEdicaoId = null;
 let questaoParaExcluirId = null;
 
+// Variáveis para controle do quiz
+let questoesQuiz = [];
+let questaoAtualIndex = 0;
+let questaoAtual = null;
+
+// Carregar respostas salvas do localStorage
+let respostasUsuario =
+  JSON.parse(localStorage.getItem("respostasUsuario")) || {};
+
+const quizContainer = document.getElementById("quiz-container");
+const btnIniciarQuiz = document.getElementById("btn-iniciar-quiz");
+const btnProximaQuestao = document.getElementById("btn-proxima-questao");
+const btnQuestaoAnterior = document.getElementById("btn-questao-anterior");
+const quizFiltroMateria = document.getElementById("quiz-filtro-materia");
+const quizFiltroAssunto = document.getElementById("quiz-filtro-assunto");
+const quizFiltroBanca = document.getElementById("quiz-filtro-banca");
+
 // 3. Funções de Utilidade
 
 /**
@@ -83,24 +100,25 @@ function processarTexto() {
 
   // 1. Detectar a resposta correta no final do texto (RESPOSTA CORRETA: E ou GABARITO: E)
   let respostaCorretaLetra = null;
-  const regexRespostaFinal = /(?:RESPOSTA\s*CORRETA|GABARITO)\s*:\s*([A-E])\s*$/im;
+  const regexRespostaFinal =
+    /(?:RESPOSTA\s*CORRETA|GABARITO)\s*:\s*([A-E])\s*$/im;
   const matchRespostaFinal = textoCompleto.match(regexRespostaFinal);
-  
+
   let textoSemResposta = textoCompleto;
   if (matchRespostaFinal) {
     respostaCorretaLetra = matchRespostaFinal[1].toUpperCase();
     // Remove a linha da resposta correta
-    textoSemResposta = textoCompleto.replace(regexRespostaFinal, '').trim();
+    textoSemResposta = textoCompleto.replace(regexRespostaFinal, "").trim();
   }
 
   // 2. Dividir o texto em enunciado e alternativas
   // Procura pela primeira alternativa (A, B, C, D, E seguida de quebra de linha ou espaço)
   const regexPrimeiraAlternativa = /^([\s\S]*?)\n\s*([A-E])\s*\n/m;
   const match = textoSemResposta.match(regexPrimeiraAlternativa);
-  
+
   let enunciado = textoSemResposta;
   let textoAlternativas = textoSemResposta;
-  
+
   if (match) {
     enunciado = match[1].trim();
     // Encontra a posição onde as alternativas começam
@@ -113,26 +131,28 @@ function processarTexto() {
   const regexAlternativas = /([A-E])\s*\n([\s\S]*?)(?=\n[A-E]\s*\n|$)/g;
   let alternativas = [];
   let matchAlt;
-  
+
   while ((matchAlt = regexAlternativas.exec(textoAlternativas)) !== null) {
     const letra = matchAlt[1].trim();
     let texto = matchAlt[2].trim();
-    
+
     // Remove quebras de linha extras e normaliza espaços
-    texto = texto.replace(/\n+/g, ' ').trim();
-    
+    texto = texto.replace(/\n+/g, " ").trim();
+
     if (texto) {
       alternativas.push({
         letra,
         texto,
-        isCorreta: letra === respostaCorretaLetra
+        isCorreta: letra === respostaCorretaLetra,
       });
     }
   }
 
   // 4. Validar se encontrou alternativas
   if (alternativas.length < 2) {
-    alert("Não foi possível extrair as alternativas. Verifique o formato do texto. \n\nFormato esperado:\nEnunciado da questão...\nA\nTexto da alternativa A\nB\nTexto da alternativa B\n...\nRESPOSTA CORRETA: E");
+    alert(
+      "Não foi possível extrair as alternativas. Verifique o formato do texto. \n\nFormato esperado:\nEnunciado da questão...\nA\nTexto da alternativa A\nB\nTexto da alternativa B\n...\nRESPOSTA CORRETA: E"
+    );
     return;
   }
 
@@ -146,8 +166,16 @@ function processarTexto() {
   alternativas.forEach((alt) => {
     adicionarOpcao(alt.texto, alt.isCorreta);
   });
-  
-  alert("Texto processado com sucesso! \n\nEnunciado: " + (enunciado.substring(0, 50) + "...") + "\nAlternativas: " + alternativas.length + "\nResposta correta: " + (respostaCorretaLetra || "Não identificada") + "\n\nVerifique e complete os campos de Matéria, Assunto, Banca e Dificuldade.");
+
+  alert(
+    "Texto processado com sucesso! \n\nEnunciado: " +
+      (enunciado.substring(0, 50) + "...") +
+      "\nAlternativas: " +
+      alternativas.length +
+      "\nResposta correta: " +
+      (respostaCorretaLetra || "Não identificada") +
+      "\n\nVerifique e complete os campos de Matéria, Assunto, Banca e Dificuldade."
+  );
 }
 
 btnProcessarTexto.addEventListener("click", processarTexto);
@@ -185,9 +213,9 @@ selectTipo.addEventListener("change", () => {
     tipo === "certo_errado" ? "block" : "none";
 
   if (tipo === "multipla_escolha" && opcoesList.children.length === 0) {
-    // Não adiciona automaticamente se estivermos no meio de um processamento de texto
+    // Não adiciona automaticamente if estivermos no meio de um processamento de texto
     if (opcoesList.children.length === 0) {
-        adicionarOpcao();
+      adicionarOpcao();
     }
   }
 });
@@ -385,12 +413,54 @@ async function editarQuestao(id) {
 }
 
 /**
- * Exibe o modal de confirmação para exclusão.
- * @param {string} id - O ID da questão a ser excluída.
+ * Verifica se a questão tem dependências antes de excluir
  */
-function confirmarExclusao(id) {
-  questaoParaExcluirId = id;
-  modalConfirmacao.classList.add("active");
+async function verificarDependenciasQuestao(questaoId) {
+  try {
+    // Verifica se existem respostas de quiz
+    const { data: respostas, error: respostasError } = await supabaseClient
+      .from("respostas_quiz")
+      .select("id")
+      .eq("questao_id", questaoId)
+      .limit(1);
+
+    if (respostasError) throw respostasError;
+
+    return {
+      temRespostasQuiz: respostas && respostas.length > 0,
+      totalRespostas: respostas ? respostas.length : 0,
+    };
+  } catch (error) {
+    console.error("Erro ao verificar dependências:", error);
+    return { temRespostasQuiz: false, totalRespostas: 0 };
+  }
+}
+
+/**
+ * Exibe o modal de confirmação para exclusão com informações sobre dependências.
+ */
+async function confirmarExclusao(id) {
+  try {
+    const dependencias = await verificarDependenciasQuestao(id);
+
+    if (dependencias.temRespostasQuiz) {
+      const confirmar = confirm(
+        `Esta questão possui ${dependencias.totalRespostas} resposta(s) de quiz vinculada(s). ` +
+          `Ao excluir, todas as respostas associadas também serão removidas. ` +
+          `Deseja continuar?`
+      );
+
+      if (!confirmar) return;
+    }
+
+    questaoParaExcluirId = id;
+    modalConfirmacao.classList.add("active");
+  } catch (error) {
+    console.error("Erro ao verificar dependências:", error);
+    // Se houver erro na verificação, prossegue com a exclusão normal
+    questaoParaExcluirId = id;
+    modalConfirmacao.classList.add("active");
+  }
 }
 
 /**
@@ -400,6 +470,23 @@ btnConfirmarExclusao.addEventListener("click", async () => {
   if (!questaoParaExcluirId) return;
 
   try {
+    // 1. PRIMEIRO: Excluir as respostas do quiz associadas
+    const { error: respostasError } = await supabaseClient
+      .from("respostas_quiz")
+      .delete()
+      .eq("questao_id", questaoParaExcluirId);
+
+    if (respostasError) throw respostasError;
+
+    // 2. SEGUNDO: Excluir as opções de múltipla escolha (se houver)
+    const { error: opcoesError } = await supabaseClient
+      .from("opcoes_multipla_escolha")
+      .delete()
+      .eq("questao_id", questaoParaExcluirId);
+
+    if (opcoesError) throw opcoesError;
+
+    // 3. TERCEIRO: Excluir a questão
     const { error } = await supabaseClient
       .from("questoes")
       .delete()
@@ -412,7 +499,15 @@ btnConfirmarExclusao.addEventListener("click", async () => {
     alert("Questão excluída com sucesso!");
   } catch (error) {
     console.error("Erro ao excluir questão:", error);
-    alert("Erro ao excluir questão: " + error.message);
+
+    // Mensagem mais amigável para o usuário
+    if (error.code === "23503") {
+      alert(
+        "Não foi possível excluir a questão. Ela está vinculada a respostas de quiz. Tente novamente ou contate o administrador."
+      );
+    } else {
+      alert("Erro ao excluir questão: " + error.message);
+    }
   }
 });
 
@@ -510,7 +605,7 @@ function criarCardQuestao(questao, opcoes = []) {
 async function carregarQuestao() {
   questoesGrid.innerHTML = "Carregando questões...";
 
-  // Aplica filtros (a ser implementado no passo 4)
+  // Aplica filtros
   const filtroMateria = document.getElementById("filtro-materia").value;
   const filtroAssunto = document.getElementById("filtro-assunto").value;
   const filtroDificuldade = document.getElementById("filtro-dificuldade").value;
@@ -644,22 +739,7 @@ document.addEventListener("DOMContentLoaded", () => {
   switchSection("questoes");
 });
 
-// Não é mais necessário exportar funções globalmente, pois usaremos delegação de eventos.
-
-// A lógica do Quiz (Responder) e Dashboard será implementada no próximo passo.
-
-// 7. Lógica do Quiz (Responder Questões)
-
-let questoesQuiz = [];
-let questaoAtualIndex = 0;
-let questaoAtual = null;
-
-const quizContainer = document.getElementById("quiz-container");
-const btnIniciarQuiz = document.getElementById("btn-iniciar-quiz");
-const btnProximaQuestao = document.getElementById("btn-proxima-questao");
-const quizFiltroMateria = document.getElementById("quiz-filtro-materia");
-const quizFiltroAssunto = document.getElementById("quiz-filtro-assunto");
-const quizFiltroBanca = document.getElementById("quiz-filtro-banca");
+// 8. Lógica do Quiz (Responder Questões)
 
 /**
  * Inicia o quiz, carregando as questões com base nos filtros.
@@ -668,6 +748,10 @@ async function iniciarQuiz() {
   quizContainer.innerHTML = "<p>Carregando questões...</p>";
   btnIniciarQuiz.style.display = "none";
   btnProximaQuestao.style.display = "none";
+  btnQuestaoAnterior.style.display = "none";
+
+  // NÃO reiniciamos as respostas aqui - elas são mantidas do localStorage
+  questaoAtualIndex = 0;
 
   let query = supabaseClient.from("questoes").select("*");
 
@@ -733,27 +817,37 @@ async function iniciarQuiz() {
  */
 function exibirQuestaoQuiz() {
   if (questaoAtualIndex >= questoesQuiz.length) {
-    quizContainer.innerHTML =
-      "<p>Parabéns! Você respondeu todas as questões.</p>";
-    btnIniciarQuiz.style.display = "inline-flex";
-    btnProximaQuestao.style.display = "none";
+    mostrarResumoQuiz();
     return;
   }
 
   questaoAtual = questoesQuiz[questaoAtualIndex];
 
+  // Verificar se já respondeu esta questão anteriormente (por ID)
+  const respostaAnterior = respostasUsuario[questaoAtual.id];
+  let feedbackHtml = "";
+
+  if (respostaAnterior) {
+    feedbackHtml = respostaAnterior.acertou
+      ? '<div class="feedback-acerto">✓ Acertou!</div>'
+      : '<div class="feedback-erro">✗ Errou!</div>';
+  }
+
   let html = `
         <div class="quiz-progress">
             <p>Questão ${questaoAtualIndex + 1} de ${questoesQuiz.length}</p>
         </div>
+        ${feedbackHtml}
         <div class="quiz-question">
             ${questaoAtual.enunciado}
         </div>
     `;
 
+  // SEMPRE mostrar as opções, SEM marcar nenhuma
   if (questaoAtual.tipo === "multipla_escolha") {
     html += '<div class="quiz-options">';
     questaoAtual.opcoes.forEach((opcao, index) => {
+      // NÃO adicionar classes de marcação - alternativas sempre limpas
       html += `
                 <div class="quiz-option" data-index="${index}" data-correta="${opcao.is_correta}">
                     ${opcao.texto_opcao}
@@ -762,16 +856,17 @@ function exibirQuestaoQuiz() {
     });
     html += "</div>";
   } else if (questaoAtual.tipo === "certo_errado") {
+    // NÃO marcar nenhuma opção - sempre limpas
     html += `
             <div class="quiz-options">
                 <div class="quiz-option" data-resposta="Certo" data-correta="${
-      questaoAtual.resposta_certo_errado === "Certo"
-    }">
+                  questaoAtual.resposta_certo_errado === "Certo"
+                }">
                     Certo
                 </div>
                 <div class="quiz-option" data-resposta="Errado" data-correta="${
-      questaoAtual.resposta_certo_errado === "Errado"
-    }">
+                  questaoAtual.resposta_certo_errado === "Errado"
+                }">
                     Errado
                 </div>
             </div>
@@ -780,14 +875,17 @@ function exibirQuestaoQuiz() {
 
   quizContainer.innerHTML = html;
 
-  // Adiciona listeners para as opções
+  // Controlar visibilidade dos botões
+  btnQuestaoAnterior.style.display =
+    questaoAtualIndex > 0 ? "inline-flex" : "none";
+  btnProximaQuestao.style.display = "inline-flex";
+
+  // SEMPRE adicionar listeners para as opções (permite responder novamente)
   document.querySelectorAll(".quiz-option").forEach((option) => {
     option.addEventListener("click", () => {
       selecionarOpcaoQuiz(option);
     });
   });
-
-  btnProximaQuestao.style.display = "inline-flex";
 }
 
 /**
@@ -800,6 +898,17 @@ function selecionarOpcaoQuiz(element) {
   });
 
   const isCorreta = element.getAttribute("data-correta") === "true";
+
+  // Armazena a resposta do usuário pelo ID da questão
+  const resposta = {
+    acertou: isCorreta,
+    opcaoIndex: element.getAttribute("data-index"),
+    resposta: element.getAttribute("data-resposta"),
+  };
+
+  respostasUsuario[questaoAtual.id] = resposta;
+  // Salva no localStorage
+  localStorage.setItem("respostasUsuario", JSON.stringify(respostasUsuario));
 
   if (isCorreta) {
     element.classList.add("correct");
@@ -814,25 +923,202 @@ function selecionarOpcaoQuiz(element) {
   }
 
   element.classList.add("selected");
+
+  // Atualiza o feedback imediatamente
+  const feedbackHtml = isCorreta
+    ? '<div class="feedback-acerto">✓ Acertou!</div>'
+    : '<div class="feedback-erro">✗ Errou!</div>';
+
+  // Remove feedback anterior se existir
+  const feedbackAnterior = document.querySelector(
+    ".feedback-acerto, .feedback-erro"
+  );
+  if (feedbackAnterior) {
+    feedbackAnterior.remove();
+  }
+
+  // Adiciona o novo feedback
+  const quizQuestion = document.querySelector(".quiz-question");
+  if (quizQuestion) {
+    quizQuestion.insertAdjacentHTML("beforebegin", feedbackHtml);
+  }
 }
 
 /**
- * Vai para a próxima questão.
+ * Vai para a questão anterior no quiz.
  */
-btnProximaQuestao.addEventListener("click", () => {
-  questaoAtualIndex++;
-  exibirQuestaoQuiz();
-});
+function questaoAnterior() {
+  if (questaoAtualIndex > 0) {
+    questaoAtualIndex--;
+    exibirQuestaoQuiz();
+  }
+}
+
+/**
+ * Vai para a próxima questão no quiz.
+ */
+function proximaQuestao() {
+  if (questaoAtualIndex < questoesQuiz.length - 1) {
+    questaoAtualIndex++;
+    exibirQuestaoQuiz();
+  } else {
+    // Última questão - mostrar resumo
+    mostrarResumoQuiz();
+  }
+}
+
+/**
+ * Mostra o resumo do quiz com estatísticas.
+ */
+function mostrarResumoQuiz() {
+  const totalQuestoes = questoesQuiz.length;
+  const acertos = Object.values(respostasUsuario).filter(
+    (r) => r.acertou
+  ).length;
+  const erros = totalQuestoes - acertos;
+
+  // Calcular estatísticas por matéria e assunto
+  const estatisticas = calcularEstatisticas();
+
+  let html = `
+        <div class="quiz-resumo">
+            <h3>Quiz Concluído!</h3>
+            <div class="resumo-geral">
+                <div class="stat-item">
+                    <span class="stat-label">Total de Questões:</span>
+                    <span class="stat-value">${totalQuestoes}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Acertos:</span>
+                    <span class="stat-value success">${acertos}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Erros:</span>
+                    <span class="stat-value error">${erros}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Percentual de Acerto:</span>
+                    <span class="stat-value">${(
+                      (acertos / totalQuestoes) *
+                      100
+                    ).toFixed(1)}%</span>
+                </div>
+            </div>
+            
+            <div class="resumo-detalhado">
+                <h4>Desempenho por Matéria e Assunto</h4>
+                ${estatisticas}
+            </div>
+            
+            <div class="resumo-botoes">
+                <button class="btn btn-primary" id="btn-reiniciar-quiz">
+                    <i class="fas fa-redo"></i> Reiniciar Quiz
+                </button>
+                <button class="btn btn-outline" id="btn-limpar-respostas">
+                    <i class="fas fa-trash"></i> Limpar Respostas Salvas
+                </button>
+            </div>
+        </div>
+    `;
+
+  quizContainer.innerHTML = html;
+  btnProximaQuestao.style.display = "none";
+  btnQuestaoAnterior.style.display = "none";
+
+  document
+    .getElementById("btn-reiniciar-quiz")
+    .addEventListener("click", () => {
+      questaoAtualIndex = 0;
+      exibirQuestaoQuiz();
+    });
+
+  document
+    .getElementById("btn-limpar-respostas")
+    .addEventListener("click", () => {
+      if (
+        confirm(
+          "Tem certeza que deseja limpar todas as respostas salvas? Esta ação não pode ser desfeita."
+        )
+      ) {
+        localStorage.removeItem("respostasUsuario");
+        respostasUsuario = {};
+        alert("Respostas limpas com sucesso!");
+        mostrarResumoQuiz(); // Recarrega o resumo
+      }
+    });
+}
+
+/**
+ * Calcula estatísticas por matéria e assunto.
+ */
+function calcularEstatisticas() {
+  const estatisticas = {};
+
+  questoesQuiz.forEach((questao, index) => {
+    const resposta = respostasUsuario[questao.id];
+    if (!resposta) return; // Só conta questões respondidas
+
+    const materia = questao.materia || "Sem matéria";
+    const assunto = questao.assunto || "Sem assunto";
+
+    if (!estatisticas[materia]) {
+      estatisticas[materia] = {};
+    }
+
+    if (!estatisticas[materia][assunto]) {
+      estatisticas[materia][assunto] = { total: 0, erros: 0 };
+    }
+
+    estatisticas[materia][assunto].total++;
+    if (!resposta.acertou) {
+      estatisticas[materia][assunto].erros++;
+    }
+  });
+
+  let html = "";
+  Object.keys(estatisticas).forEach((materia) => {
+    html += `<div class="materia-stats"><strong>${materia}</strong>`;
+    Object.keys(estatisticas[materia]).forEach((assunto) => {
+      const stats = estatisticas[materia][assunto];
+      const percentualErro =
+        stats.total > 0 ? ((stats.erros / stats.total) * 100).toFixed(1) : 0;
+      html += `
+                <div class="assunto-stat">
+                    <span>${assunto}:</span>
+                    <span>${stats.erros} erro(s) de ${stats.total} (${percentualErro}%)</span>
+                </div>
+            `;
+    });
+    html += "</div>";
+  });
+
+  return (
+    html ||
+    "<p>Nenhuma estatística disponível. Responda algumas questões primeiro.</p>"
+  );
+}
 
 /**
  * Inicia o quiz ao clicar no botão.
  */
 btnIniciarQuiz.addEventListener("click", iniciarQuiz);
 
-// 8. Lógica do Dashboard
+/**
+ * Vai para a próxima questão.
+ */
+btnProximaQuestao.addEventListener("click", proximaQuestao);
+
+/**
+ * Vai para a questão anterior.
+ */
+btnQuestaoAnterior.addEventListener("click", questaoAnterior);
+
+// 9. Lógica do Dashboard
 
 const dashboardGrid = document.getElementById("dashboard-grid");
-const btnAtualizarDashboard = document.getElementById("btn-atualizar-dashboard");
+const btnAtualizarDashboard = document.getElementById(
+  "btn-atualizar-dashboard"
+);
 
 /**
  * Carrega e exibe as estatísticas do dashboard.
@@ -855,13 +1141,15 @@ async function carregarDashboard() {
       (q) => q.tipo === "certo_errado"
     ).length;
 
-    const dificuldades = {
-      facil: questoes.filter((q) => q.dificuldade === "facil").length,
-      media: questoes.filter((q) => q.dificuldade === "media").length,
-      dificil: questoes.filter((q) => q.dificuldade === "dificil").length,
-    };
+    const materias = [
+      ...new Set(questoes.map((q) => q.materia).filter(Boolean)),
+    ];
+    const assuntos = [
+      ...new Set(questoes.map((q) => q.assunto).filter(Boolean)),
+    ];
 
-    const materias = [...new Set(questoes.map((q) => q.materia).filter(Boolean))];
+    // Calcular estatísticas REAIS baseadas nas respostas salvas
+    const estatisticasReais = calcularEstatisticasReais(questoes);
 
     dashboardGrid.innerHTML = `
             <div class="dashboard-card">
@@ -878,21 +1166,21 @@ async function carregarDashboard() {
                     <span class="stat-label">Certo ou Errado</span>
                     <span class="stat-value">${certoErrado}</span>
                 </div>
-            </div>
-
-            <div class="dashboard-card">
-                <h3>Por Dificuldade</h3>
                 <div class="stat-item">
-                    <span class="stat-label">Fácil</span>
-                    <span class="stat-value">${dificuldades.facil}</span>
+                    <span class="stat-label">Questões Respondidas</span>
+                    <span class="stat-value">${
+                      estatisticasReais.totalRespondidas
+                    }</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Média</span>
-                    <span class="stat-value">${dificuldades.media}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Difícil</span>
-                    <span class="stat-value">${dificuldades.dificil}</span>
+                    <span class="stat-label">Taxa de Acerto Geral</span>
+                    <span class="stat-value ${
+                      estatisticasReais.taxaAcerto >= 70
+                        ? "success"
+                        : estatisticasReais.taxaAcerto >= 50
+                        ? "warning"
+                        : "error"
+                    }">${estatisticasReais.taxaAcerto}%</span>
                 </div>
             </div>
 
@@ -903,10 +1191,90 @@ async function carregarDashboard() {
                     (materia) =>
                       `<div class="stat-item">
                     <span class="stat-label">${materia}</span>
-                    <span class="stat-value">${questoes.filter((q) => q.materia === materia).length}</span>
+                    <span class="stat-value">${
+                      questoes.filter((q) => q.materia === materia).length
+                    }</span>
                 </div>`
                   )
                   .join("")}
+            </div>
+
+            <div class="dashboard-card">
+                <h3>Estatísticas de Desempenho</h3>
+                <div class="stat-item">
+                    <span class="stat-label">Total de Acertos</span>
+                    <span class="stat-value success">${
+                      estatisticasReais.totalAcertos
+                    }</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Total de Erros</span>
+                    <span class="stat-value error">${
+                      estatisticasReais.totalErros
+                    }</span>
+                </div>
+                <div class="stat-subtitle">Desempenho por Matéria:</div>
+                ${estatisticasReais.porMateria
+                  .map(
+                    (item) => `
+                    <div class="stat-item">
+                        <span class="stat-label">${item.materia}</span>
+                        <span class="stat-value ${
+                          item.taxaAcerto >= 70
+                            ? "success"
+                            : item.taxaAcerto >= 50
+                            ? "warning"
+                            : "error"
+                        }">${item.taxaAcerto}% (${item.acertos}/${
+                      item.total
+                    })</span>
+                    </div>
+                `
+                  )
+                  .join("")}
+                <div class="stat-subtitle">Desempenho por Assunto:</div>
+                ${estatisticasReais.porAssunto
+                  .slice(0, 5)
+                  .map(
+                    (item) => `
+                    <div class="stat-item">
+                        <span class="stat-label">${item.assunto}</span>
+                        <span class="stat-value ${
+                          item.taxaAcerto >= 70
+                            ? "success"
+                            : item.taxaAcerto >= 50
+                            ? "warning"
+                            : "error"
+                        }">${item.taxaAcerto}% (${item.acertos}/${
+                      item.total
+                    })</span>
+                    </div>
+                `
+                  )
+                  .join("")}
+                ${
+                  estatisticasReais.porAssunto.length > 5
+                    ? '<div class="stat-more">...</div>'
+                    : ""
+                }
+            </div>
+            
+            <div class="dashboard-card">
+                <h3>Áreas que Precisam de Revisão</h3>
+                ${
+                  estatisticasReais.areasRevisao.length > 0
+                    ? estatisticasReais.areasRevisao
+                        .map(
+                          (item) => `
+                    <div class="stat-item">
+                        <span class="stat-label">${item.materia} - ${item.assunto}</span>
+                        <span class="stat-value error">${item.taxaAcerto}% de acerto</span>
+                    </div>
+                  `
+                        )
+                        .join("")
+                    : '<p class="no-data">Nenhuma área identificada para revisão. Continue assim!</p>'
+                }
             </div>
         `;
   } catch (error) {
@@ -916,18 +1284,133 @@ async function carregarDashboard() {
   }
 }
 
+/**
+ * Calcula estatísticas REAIS baseadas nas respostas salvas
+ */
+function calcularEstatisticasReais(questoes) {
+  const desempenhoPorMateria = {};
+  const desempenhoPorAssunto = {};
+  let totalAcertos = 0;
+  let totalErros = 0;
+  let totalRespondidas = 0;
+
+  // Processar todas as questões
+  questoes.forEach((questao) => {
+    const resposta = respostasUsuario[questao.id];
+    if (!resposta) return; // Só conta questões respondidas
+
+    const materia = questao.materia || "Sem matéria";
+    const assunto = questao.assunto || "Sem assunto";
+
+    // Inicializar contadores por matéria
+    if (!desempenhoPorMateria[materia]) {
+      desempenhoPorMateria[materia] = { total: 0, acertos: 0, erros: 0 };
+    }
+
+    // Inicializar contadores por assunto
+    if (!desempenhoPorAssunto[assunto]) {
+      desempenhoPorAssunto[assunto] = { total: 0, acertos: 0, erros: 0 };
+    }
+
+    // Atualizar contadores
+    desempenhoPorMateria[materia].total++;
+    desempenhoPorAssunto[assunto].total++;
+
+    if (resposta.acertou) {
+      desempenhoPorMateria[materia].acertos++;
+      desempenhoPorAssunto[assunto].acertos++;
+      totalAcertos++;
+    } else {
+      desempenhoPorMateria[materia].erros++;
+      desempenhoPorAssunto[assunto].erros++;
+      totalErros++;
+    }
+
+    totalRespondidas++;
+  });
+
+  // Calcular taxas de acerto e preparar dados para exibição
+  const porMateria = Object.keys(desempenhoPorMateria)
+    .map((materia) => {
+      const stats = desempenhoPorMateria[materia];
+      const taxaAcerto =
+        stats.total > 0 ? Math.round((stats.acertos / stats.total) * 100) : 0;
+      return {
+        materia,
+        ...stats,
+        taxaAcerto,
+      };
+    })
+    .sort((a, b) => a.taxaAcerto - b.taxaAcerto); // Ordenar por pior desempenho
+
+  const porAssunto = Object.keys(desempenhoPorAssunto)
+    .map((assunto) => {
+      const stats = desempenhoPorAssunto[assunto];
+      const taxaAcerto =
+        stats.total > 0 ? Math.round((stats.acertos / stats.total) * 100) : 0;
+      return {
+        assunto,
+        ...stats,
+        taxaAcerto,
+      };
+    })
+    .sort((a, b) => a.taxaAcerto - b.taxaAcerto); // Ordenar por pior desempenho
+
+  // Identificar áreas que precisam de revisão (taxa de acerto < 60%)
+  const areasRevisao = [];
+  porMateria.forEach((item) => {
+    if (item.taxaAcerto < 60 && item.total >= 3) {
+      // Pelo menos 3 questões para considerar
+      areasRevisao.push({
+        materia: item.materia,
+        assunto: "Geral",
+        taxaAcerto: item.taxaAcerto,
+      });
+    }
+  });
+
+  porAssunto.forEach((item) => {
+    if (item.taxaAcerto < 60 && item.total >= 2) {
+      // Pelo menos 2 questões para considerar
+      areasRevisao.push({
+        materia: "Várias",
+        assunto: item.assunto,
+        taxaAcerto: item.taxaAcerto,
+      });
+    }
+  });
+
+  // Calcular taxa de acerto geral
+  const taxaAcertoGeral =
+    totalRespondidas > 0
+      ? Math.round((totalAcertos / totalRespondidas) * 100)
+      : 0;
+
+  return {
+    totalAcertos,
+    totalErros,
+    totalRespondidas,
+    taxaAcerto: taxaAcertoGeral,
+    porMateria,
+    porAssunto,
+    areasRevisao: areasRevisao.slice(0, 5), // Limitar a 5 áreas
+  };
+}
+
 btnAtualizarDashboard.addEventListener("click", carregarDashboard);
 
-// Delegação de eventos para editar e deletar questões
-document.addEventListener("click", (e) => {
+// Delegação de eventos para editar e deletar questões (ATUALIZADA)
+document.addEventListener("click", async (e) => {
+  // Editar questão
   if (e.target.closest(".btn-icon.edit")) {
     const id = e.target.closest(".btn-icon.edit").getAttribute("data-id");
     editarQuestao(id);
   }
 
+  // Deletar questão (AGORA CHAMA A FUNÇÃO APRIMORADA)
   if (e.target.closest(".btn-icon.delete")) {
     const id = e.target.closest(".btn-icon.delete").getAttribute("data-id");
-    confirmarExclusao(id);
+    await confirmarExclusao(id); // Adiciona await pois a função agora é async
   }
 });
 
